@@ -91,7 +91,7 @@ def solveConstraints( doc, showFailureErrorDialog=True, printErrors=True, cache=
             if not constraintSystem.containtsObject( constraintObj.Object1) and not constraintSystem.containtsObject( constraintObj.Object2):
                 constraintSystem = AddFreeObjectsUnion(constraintSystem, *cArgs)
             if constraintObj.Type == 'plane':
-                if constraintObj.SubElement2.startswith('Face'): #otherwise vertex
+                if subname_is_face(constraintObj.SubElement2): #otherwise vertex
                     constraintSystem = AxisAlignmentUnion(constraintSystem, *cArgs,  constraintValue = constraintObj.directionConstraint )
                 constraintSystem = PlaneOffsetUnion(constraintSystem,  *cArgs, constraintValue = constraintObj.offset.Value)
             elif constraintObj.Type == 'angle_between_planes':

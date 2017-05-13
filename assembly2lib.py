@@ -35,6 +35,13 @@ def isLine(param):
     else:
         return isinstance(param,Part.Line)
 
+def subname_is_face(subname):
+    return subname.split('.')[-1].startswith('Face')
+def subname_is_edge(subname):
+    return subname.split('.')[-1].startswith('Edge')
+def subname_is_vertex(subname):
+    return subname.split('.')[-1].startswith('Vertex')
+
 def debugPrint( level, msg ):
     if level <= debugPrint.level:
         FreeCAD.Console.PrintMessage(msg + '\n')
@@ -198,9 +205,9 @@ def printSelection(selection):
     for s in selection:
         for e in s.SubElementNames:
             entries.append(' - %s:%s' % (s.ObjectName, e))
-            if e.startswith('Face'):
+            if subname_is_face(e):
                 ind = int( e[4:]) -1 
-                face = s.Object.Shape.Faces[ind]
+                face = getObjectFaceFromName(s.Object, e)
                 entries[-1] = entries[-1] + ' %s' % str(face.Surface)
     return '\n'.join( entries[:5] )
                 
@@ -257,9 +264,12 @@ def updateObjectProperties( c ):
             c.ViewObject.Proxy = ConstraintViewProviderProxy( c, iconPaths[c.Type] )
     
 def getObjectFaceFromName( obj, faceName ):
-    assert faceName.startswith('Face')
-    ind = int( faceName[4:]) -1 
-    return obj.Shape.Faces[ind]
+    face = obj.getSubObject(faceName)
+    if face is None:
+        raise ValueError("Face {faceName} not found in {obj.Name}".format(**vars()))
+    else:
+        print ("Face {faceName} fetched from {obj.Name}".format(**vars()))
+    return face
 
 class SelectionExObject:
     'allows for selection gate funtions to interface with classification functions below'
@@ -273,7 +283,7 @@ class SelectionExObject:
 def planeSelected( selection ):
     if len( selection.SubElementNames ) == 1:
         subElement = selection.SubElementNames[0]
-        if subElement.startswith('Face'):
+        if subname_is_face(subElement):
             face = getObjectFaceFromName( selection.Object, subElement)
             if str(face.Surface) == '<Plane object>':
                 return True
@@ -291,7 +301,7 @@ def planeSelected( selection ):
 def cylindricalPlaneSelected( selection ):
     if len( selection.SubElementNames ) == 1:
         subElement = selection.SubElementNames[0]
-        if subElement.startswith('Face'):
+        if subname_is_face(subElement):
             face = getObjectFaceFromName( selection.Object, subElement)
             if hasattr(face.Surface,'Radius'):
                 return True
@@ -309,7 +319,7 @@ def cylindricalPlaneSelected( selection ):
 def AxisOfPlaneSelected( selection ): #adding Planes/Faces selection for Axial constraints
     if len( selection.SubElementNames ) == 1:
         subElement = selection.SubElementNames[0]
-        if subElement.startswith('Face'):
+        if subname_is_face(subElement):
             face = getObjectFaceFromName( selection.Object, subElement)
             if str(face.Surface) == '<Plane object>':
                 return True
@@ -321,14 +331,12 @@ def AxisOfPlaneSelected( selection ): #adding Planes/Faces selection for Axial c
     return False
 
 def getObjectEdgeFromName( obj, name ):
-    assert name.startswith('Edge')
-    ind = int( name[4:]) -1 
-    return obj.Shape.Edges[ind]
+    return obj.getSubObject(name)
 
 def CircularEdgeSelected( selection ):
     if len( selection.SubElementNames ) == 1:
         subElement = selection.SubElementNames[0]
-        if subElement.startswith('Edge'):
+        if subname_is_edge(subElement):
             edge = getObjectEdgeFromName( selection.Object, subElement)
             if not hasattr(edge, 'Curve'): #issue 39
                 return False
@@ -351,7 +359,7 @@ def CircularEdgeSelected( selection ):
 def LinearEdgeSelected( selection ):
     if len( selection.SubElementNames ) == 1:
         subElement = selection.SubElementNames[0]
-        if subElement.startswith('Edge'):
+        if subname_is_edge(subElement):
             edge = getObjectEdgeFromName( selection.Object, subElement)
             if not hasattr(edge, 'Curve'): #issue 39
                 return False
@@ -373,25 +381,23 @@ def LinearEdgeSelected( selection ):
 
 def vertexSelected( selection ):
     if len( selection.SubElementNames ) == 1:
-        return selection.SubElementNames[0].startswith('Vertex')
+        return subname_is_vertex(selection.SubElementNames[0])
     return False
 
 def getObjectVertexFromName( obj, name ):
-    assert name.startswith('Vertex')
-    ind = int( name[6:]) -1 
-    return obj.Shape.Vertexes[ind]
+    return obj.getSubObject(name)
 
 def sphericalSurfaceSelected( selection ):
     if len( selection.SubElementNames ) == 1:
         subElement = selection.SubElementNames[0]
-        if subElement.startswith('Face'):
+        if subname_is_face(subElement):
             face = getObjectFaceFromName( selection.Object, subElement)
             return str( face.Surface ).startswith('Sphere ')
     return False
 
 def getSubElementPos(obj, subElementName):
     pos = None
-    if subElementName.startswith('Face'):
+    if subname_is_face(subElementName):
         face = getObjectFaceFromName(obj, subElementName)
         surface = face.Surface
         if str(surface) == '<Plane object>':
@@ -411,7 +417,7 @@ def getSubElementPos(obj, subElementName):
             error_normalized = error / face.BoundBox.DiagonalLength
             if error_normalized < 10**-6: #then good rotation_axis fix
                 pos = center
-    elif subElementName.startswith('Edge'):
+    elif subname_is_edge(subElementName):
         edge = getObjectEdgeFromName(obj, subElementName)
         if isLine(edge.Curve):
             pos = edge.Vertexes[-1].Point
@@ -430,7 +436,7 @@ def getSubElementPos(obj, subElementName):
                 D = numpy.array([L.tangent(0)[0] for L in lines]) #D(irections)
                 if numpy.std( D, axis=0 ).max() < 10**-9: #then linear curve
                     return lines[0].value(0)
-    elif subElementName.startswith('Vertex'):
+    elif subname_is_vertex(subElementName):
         return  getObjectVertexFromName(obj, subElementName).Point
     if pos != None:
         return numpy.array(pos)
@@ -440,7 +446,7 @@ def getSubElementPos(obj, subElementName):
     
 def getSubElementAxis(obj, subElementName):
     axis = None
-    if subElementName.startswith('Face'):
+    if subname_is_face(subElementName):
         face = getObjectFaceFromName(obj, subElementName)
         surface = face.Surface
         if hasattr(surface,'Axis'):
@@ -456,7 +462,7 @@ def getSubElementAxis(obj, subElementName):
             error_normalized = error / face.BoundBox.DiagonalLength
             if error_normalized < 10**-6: #then good rotation_axis fix
                 axis = axis_fitted
-    elif subElementName.startswith('Edge'):
+    elif subname_is_edge(subElementName):
         edge = getObjectEdgeFromName(obj, subElementName)
         if isLine(edge.Curve):
             axis = edge.Curve.tangent(0)[0]

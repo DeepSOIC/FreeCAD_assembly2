@@ -5,10 +5,10 @@ from PySide import QtGui
          
 class SphericalSurfaceSelectionGate:
     def allow(self, doc, obj, sub):
-        if sub.startswith('Face'):
+        if subname_is_face(sub):
             face = getObjectFaceFromName( obj, sub)
             return str( face.Surface ).startswith('Sphere ')
-        elif sub.startswith('Vertex'):
+        elif subname_is_vertex(sub):
             return True
         else:
             return False
