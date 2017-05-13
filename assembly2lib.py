@@ -264,7 +264,7 @@ def updateObjectProperties( c ):
             c.ViewObject.Proxy = ConstraintViewProviderProxy( c, iconPaths[c.Type] )
     
 def getObjectFaceFromName( obj, faceName ):
-    face = obj.getSubObject(faceName)
+    face = obj.getSubObject(str(faceName))
     if face is None:
         raise ValueError("Face {faceName} not found in {obj.Name}".format(**vars()))
     else:
@@ -331,7 +331,7 @@ def AxisOfPlaneSelected( selection ): #adding Planes/Faces selection for Axial c
     return False
 
 def getObjectEdgeFromName( obj, name ):
-    return obj.getSubObject(name)
+    return obj.getSubObject(str(name))
 
 def CircularEdgeSelected( selection ):
     if len( selection.SubElementNames ) == 1:
@@ -385,7 +385,7 @@ def vertexSelected( selection ):
     return False
 
 def getObjectVertexFromName( obj, name ):
-    return obj.getSubObject(name)
+    return obj.getSubObject(str(name))
 
 def sphericalSurfaceSelected( selection ):
     if len( selection.SubElementNames ) == 1:
